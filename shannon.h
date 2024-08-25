@@ -116,6 +116,10 @@ public:
     std::cout << "decode_trie" << std::endl;
     std::cout << decode_trie << std::endl;
   }
+  ~ShannonCode() {
+    // free entire decode_trie structure
+    delete decode_trie;
+  }
   std::string encode_syms() const {
     std::string encoded = "";
     for (const T &sym : syms) {

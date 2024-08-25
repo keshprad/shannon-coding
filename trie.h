@@ -9,6 +9,14 @@ template <typename T> struct TrieNode {
 
   // equivalent to checking for leaf node
   bool has_value() { return !next[0] && !next[1]; };
+  void operator delete(void *ptr) {
+    if (ptr) {
+      TrieNode<T> *node = (TrieNode<T> *)ptr;
+      delete node->next[0];
+      delete node->next[1];
+      std::free(node);
+    }
+  }
 };
 
 template <typename T>
