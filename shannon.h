@@ -1,14 +1,14 @@
 #ifndef SHANNON_H
 #define SHANNON_H
 
+#define MAX_ENCODED_SIZE 200
+
 #include "trie.h"
 #include "util.h"
 #include <iostream>
 #include <unordered_map>
 #include <utility>
 #include <vector>
-
-// TODO: OVERLOAD DELETE OPERATOR
 
 template <typename T> class ShannonCode {
 private:
@@ -120,20 +120,28 @@ public:
     // free entire decode_trie structure
     delete decode_trie;
   }
-  std::string encode_syms() const {
-    std::string encoded = "";
+  std::pair<std::bitset<MAX_ENCODED_SIZE>, size_t> encode_syms() const {
+    std::bitset<MAX_ENCODED_SIZE> msg;
+    size_t size = 0;
+
     for (const T &sym : syms) {
       // use at instead of [] to preserve const
-      encoded += sym_codes.at(sym);
+      for (auto &ch : sym_codes.at(sym)) {
+        msg <<= 1;
+        msg |= ch - '0';
+        size++;
+      }
     }
-    return encoded;
+
+    return {msg, size};
   };
-  std::vector<T> decode_syms(const std::string encoded) const {
+  std::vector<T> decode_syms(const std::bitset<MAX_ENCODED_SIZE> encoded,
+                             size_t size) const {
     std::vector<T> decoded;
     TrieNode<T> *curr = decode_trie;
 
-    for (const char &c : encoded) {
-      curr = curr->next[c - '0'];
+    for (int i = size - 1; i >= 0; i--) {
+      curr = curr->next[encoded[i]];
       if (curr->has_value()) {
         decoded.push_back(curr->value);
         curr = decode_trie;
