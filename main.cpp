@@ -12,7 +12,7 @@ int main() {
   ShannonCode<char> sc(syms);
 
   // encode message
-  std::bitset<200> encoded;
+  std::bitset<MAX_ENCODED_SIZE> encoded;
   size_t encoded_size;
   std::tie(encoded, encoded_size) = sc.encode_syms();
   std::cout << "encoded" << std::endl;
@@ -20,6 +20,7 @@ int main() {
   std::cout << "encoded_size" << std::endl;
   std::cout << encoded_size << std::endl;
 
+  // decode message
   std::vector<char> decoded = sc.decode_syms(encoded, encoded_size);
   std::cout << "decoded" << std::endl;
   for (char c : decoded) {

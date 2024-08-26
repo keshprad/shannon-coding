@@ -3,6 +3,7 @@
 
 #define MAX_ENCODED_SIZE 200
 
+#include "symbol_code.h"
 #include "trie.h"
 #include "util.h"
 #include <iostream>
@@ -13,7 +14,7 @@
 template <typename T> class ShannonCode {
 private:
   std::vector<T> syms;
-  std::unordered_map<T, std::string> sym_codes;
+  std::unordered_map<T, SymbolCode> sym_codes;
   TrieNode<T> *decode_trie;
 
   std::vector<std::pair<T, int>> get_frequencies(const std::vector<T> &syms) {
@@ -31,16 +32,17 @@ private:
               [](auto const &l, auto const &r) { return l.second > r.second; });
     return freq_vec;
   }
-  std::unordered_map<T, std::string>
+  std::unordered_map<T, SymbolCode>
   assign_codes(const std::vector<std::pair<T, int>> &freq_vec) const {
     // call recursive helper
-    std::unordered_map<T, std::string> sym_codes;
-    return assign_codes(freq_vec, 0, freq_vec.size() - 1, "", sym_codes);
+    std::unordered_map<T, SymbolCode> sym_codes;
+    return assign_codes(freq_vec, 0, freq_vec.size() - 1, SymbolCode(),
+                        sym_codes);
   }
-  std::unordered_map<T, std::string>
+  std::unordered_map<T, SymbolCode>
   assign_codes(const std::vector<std::pair<T, int>> &freq_vec, int l, int r,
-               std::string code,
-               std::unordered_map<T, std::string> &sym_codes) const {
+               SymbolCode &&code,
+               std::unordered_map<T, SymbolCode> &sym_codes) const {
     // Found code for given symbol
     if (l == r) {
       sym_codes[freq_vec[l].first] = code;
@@ -63,10 +65,12 @@ private:
     }
 
     // recurse left
-    assign_codes(freq_vec, l, i - 1, code + "0", sym_codes);
+    SymbolCode left_code = SymbolCode((code.code << 1) | 0, code.size + 1);
+    assign_codes(freq_vec, l, i - 1, std::move(left_code), sym_codes);
 
     // recurse right
-    assign_codes(freq_vec, i, r, code + "1", sym_codes);
+    SymbolCode right_code = SymbolCode((code.code << 1) | 1, code.size + 1);
+    assign_codes(freq_vec, i, r, std::move(right_code), sym_codes);
 
     return sym_codes;
   }
@@ -75,13 +79,15 @@ private:
 
     for (auto p : sym_codes) {
       TrieNode<T> *curr = root;
+      SymbolCode &sym_code = p.second;
 
-      // for each char in code, build new trie node
-      for (char c : p.second) {
-        if (!curr->next[c - '0']) {
-          curr->next[c - '0'] = new TrieNode<T>();
+      // for each bit in code, build new trie node
+      for (int shift = sym_code.size - 1; shift >= 0; shift--) {
+        int bit = (sym_code.code >> shift) & 1;
+        if (!curr->next[bit]) {
+          curr->next[bit] = new TrieNode<T>();
         }
-        curr = curr->next[c - '0'];
+        curr = curr->next[bit];
       }
       curr->value = p.first;
     }
@@ -126,11 +132,12 @@ public:
 
     for (const T &sym : syms) {
       // use at instead of [] to preserve const
-      for (auto &ch : sym_codes.at(sym)) {
-        msg <<= 1;
-        msg |= ch - '0';
-        size++;
-      }
+      const SymbolCode &sym_code = sym_codes.at(sym);
+
+      // add code to end of message
+      msg <<= sym_code.size;
+      msg |= sym_code.code;
+      size += sym_code.size;
     }
 
     return {msg, size};
