@@ -3,7 +3,6 @@
 
 #define MAX_ENCODED_SIZE 200
 
-#include "symbol_code.h"
 #include "trie.h"
 #include "util.h"
 #include <iostream>
@@ -11,10 +10,12 @@
 #include <utility>
 #include <vector>
 
+typedef std::pair<std::bitset<MAX_ENCODED_SIZE>, size_t> EncodedCode;
+
 template <typename T> class ShannonCode {
 private:
   std::vector<T> syms;
-  std::unordered_map<T, SymbolCode> sym_codes;
+  std::unordered_map<T, EncodedCode> sym_codes;
   TrieNode<T> *decode_trie;
 
   std::vector<std::pair<T, int>> get_frequencies(const std::vector<T> &syms) {
@@ -32,17 +33,16 @@ private:
               [](auto const &l, auto const &r) { return l.second > r.second; });
     return freq_vec;
   }
-  std::unordered_map<T, SymbolCode>
+  std::unordered_map<T, EncodedCode>
   assign_codes(const std::vector<std::pair<T, int>> &freq_vec) const {
     // call recursive helper
-    std::unordered_map<T, SymbolCode> sym_codes;
-    return assign_codes(freq_vec, 0, freq_vec.size() - 1, SymbolCode(),
-                        sym_codes);
+    std::unordered_map<T, EncodedCode> sym_codes;
+    return assign_codes(freq_vec, 0, freq_vec.size() - 1, {0, 0}, sym_codes);
   }
-  std::unordered_map<T, SymbolCode>
+  std::unordered_map<T, EncodedCode>
   assign_codes(const std::vector<std::pair<T, int>> &freq_vec, int l, int r,
-               SymbolCode &&code,
-               std::unordered_map<T, SymbolCode> &sym_codes) const {
+               EncodedCode &&code,
+               std::unordered_map<T, EncodedCode> &sym_codes) const {
     // Found code for given symbol
     if (l == r) {
       sym_codes[freq_vec[l].first] = code;
@@ -65,12 +65,16 @@ private:
     }
 
     // recurse left
-    SymbolCode left_code = SymbolCode((code.code << 1) | 0, code.size + 1);
-    assign_codes(freq_vec, l, i - 1, std::move(left_code), sym_codes);
+    // set new bit to 0
+    auto left_code = code.first << 1;
+    left_code.reset(0);
+    assign_codes(freq_vec, l, i - 1, {left_code, code.second + 1}, sym_codes);
 
     // recurse right
-    SymbolCode right_code = SymbolCode((code.code << 1) | 1, code.size + 1);
-    assign_codes(freq_vec, i, r, std::move(right_code), sym_codes);
+    // set new bit to 1
+    auto right_code = code.first << 1;
+    right_code.set(0);
+    assign_codes(freq_vec, i, r, {right_code, code.second + 1}, sym_codes);
 
     return sym_codes;
   }
@@ -79,11 +83,11 @@ private:
 
     for (auto p : sym_codes) {
       TrieNode<T> *curr = root;
-      SymbolCode &sym_code = p.second;
+      EncodedCode &sym_code = p.second;
 
       // for each bit in code, build new trie node
-      for (int shift = sym_code.size - 1; shift >= 0; shift--) {
-        int bit = (sym_code.code >> shift) & 1;
+      for (int idx = sym_code.second - 1; idx >= 0; idx--) {
+        int bit = sym_code.first[idx];
         if (!curr->next[bit]) {
           curr->next[bit] = new TrieNode<T>();
         }
@@ -112,7 +116,7 @@ public:
     std::cout << "sym_codes" << std::endl;
     std::cout << '{';
     for (auto &p : sym_codes) {
-      std::cout << p.first << ": " << p.second << ", ";
+      std::cout << p.first << ": " << p.second.first << ", ";
     }
     std::cout << "}" << std::endl;
 
@@ -126,29 +130,29 @@ public:
     // free entire decode_trie structure
     delete decode_trie;
   }
-  std::pair<std::bitset<MAX_ENCODED_SIZE>, size_t> encode_syms() const {
-    std::bitset<MAX_ENCODED_SIZE> msg;
+  EncodedCode encode_syms() const {
+    std::bitset<MAX_ENCODED_SIZE> msg = 0;
     size_t size = 0;
 
     for (const T &sym : syms) {
       // use at instead of [] to preserve const
-      const SymbolCode &sym_code = sym_codes.at(sym);
+      const EncodedCode &sym_code = sym_codes.at(sym);
 
       // add code to end of message
-      msg <<= sym_code.size;
-      msg |= sym_code.code;
-      size += sym_code.size;
+      msg <<= sym_code.second;
+      msg |= sym_code.first;
+      // increment size
+      size += sym_code.second;
     }
 
     return {msg, size};
   };
-  std::vector<T> decode_syms(const std::bitset<MAX_ENCODED_SIZE> encoded,
-                             size_t size) const {
+  std::vector<T> decode_syms(EncodedCode encoded) const {
     std::vector<T> decoded;
     TrieNode<T> *curr = decode_trie;
 
-    for (int i = size - 1; i >= 0; i--) {
-      curr = curr->next[encoded[i]];
+    for (int i = encoded.second - 1; i >= 0; i--) {
+      curr = curr->next[encoded.first[i]];
       if (curr->has_value()) {
         decoded.push_back(curr->value);
         curr = decode_trie;
