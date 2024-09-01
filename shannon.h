@@ -1,7 +1,6 @@
 #ifndef SHANNON_H
 #define SHANNON_H
 
-#define MAX_ENCODED_SIZE 200
 #define MIN_ENCODED_SIZE (unsigned long)8
 
 #include "trie.h"
