@@ -1,28 +1,31 @@
 #include "shannon.h"
+#include <boost/dynamic_bitset.hpp>
 #include <iostream>
 
 int main() {
-  std::string text = "Happy India Independence Day!!";
+  // specify input text
+  std::string input_text = "Happy India Independence Day!!";
+  std::cout << "input_text: " << input_text << std::endl
+            << "input_text bits: "
+            << input_text.length() * (sizeof(char) * 1 << 3) << std::endl;
+
+  // create vector of symbols
   std::vector<char> syms{};
-  syms.reserve(text.length());
-  for (int i = 0; i < text.length(); i++) {
-    syms.emplace_back(text[i]);
+  syms.reserve(input_text.length());
+  for (int i = 0; i < input_text.length(); i++) {
+    syms.emplace_back(input_text[i]);
   }
 
+  // construct ShannonCode object
   ShannonCode<char> sc(syms);
 
   // encode message
-  EncodedCode encoded = sc.encode_syms();
-  std::cout << "encoded code" << std::endl;
-  std::cout << encoded.first << std::endl;
-  std::cout << "encoded size" << std::endl;
-  std::cout << encoded.second << std::endl;
+  boost::dynamic_bitset<> encoded = sc.encode();
+  std::cout << "encoded: " << encoded << std::endl
+            << "encoded.size(): " << encoded.size() << std::endl;
 
   // decode message
-  std::vector<char> decoded = sc.decode_syms(encoded);
-  std::cout << "decoded" << std::endl;
-  for (char c : decoded) {
-    std::cout << c;
-  }
-  std::cout << std::endl;
+  std::vector<char> decoded_vec = sc.decode(encoded);
+  std::string decoded{decoded_vec.begin(), decoded_vec.end()};
+  std::cout << "decoded: " << decoded << std::endl;
 }
